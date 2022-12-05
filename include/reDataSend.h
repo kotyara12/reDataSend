@@ -59,19 +59,20 @@ bool dsTaskDelete();
 bool dsChannelInit(ext_data_service_t kind, uint32_t uid, const char *key, uint32_t min_interval, uint32_t err_interval);
 
 /**
- * EN: Sending data to the specified channel. The fields string will be removed after submission.
+ * EN: Sending data to the specified channel.
  * If little time has passed since the last data sent to the channel, the data will be queued.
  * If there is already data in the queue for this channel, it will be overwritten with new data.
  * 
- * RU: Отправка данных в заданный канал. Строка data будет удалена после отправки. 
+ * RU: Отправка данных в заданный канал.
  * Если с момента последней отправки данных в канал прошло мало времени, то данные будут поставлены в очередь.
  * Если в очереди на данный канал уже есть данные, то они будут перезаписаны новыми данными.
  * 
  * @param kind - Service type / Тип сервиса
  * @param uid  - Channel ID / Идентификатор канала
  * @param data - Data in the format f1=VALUE1&f2=VALUE2&f3=VALUE3... / Данные в формате p1=ЗНАЧ1&p2=ЗНАЧ2&p3=ЗНАЧ3...
+ * @param free_data -  Delete the original data after the data has been queued / Удалить исходную строку данных после помещения данных в очередь
  **/
-bool dsSend(ext_data_service_t kind, uint32_t uid, char *data);
+bool dsSend(ext_data_service_t kind, uint32_t uid, char *data, bool free_data);
 
 #ifdef __cplusplus
 }

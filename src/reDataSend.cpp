@@ -44,6 +44,7 @@ dataChannelsHead_t *_dataSendChannels = nullptr;
 
 static const char* logTAG = "SEND";
 static const char* dataSendTaskName = "http_send";
+static const char* dataSendUserAgent = "ESP32";
 
 #if CONFIG_DATASEND_STATIC_ALLOCATION
 StaticQueue_t _dataSendQueueBuffer;
@@ -249,6 +250,7 @@ void dsHttpConfig(ext_data_service_t kind, esp_http_client_config_t *config)
     default: break;
   };
 
+  config->user_agent = dataSendUserAgent;
   config->transport_type = HTTP_TRANSPORT_OVER_SSL;
   config->skip_cert_common_name_check = false;
   config->is_async = false;
@@ -414,29 +416,35 @@ void dsChannelsFree()
 // ------------------------------------------ Adding data to the send queue ----------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------
 
-bool dsSend(ext_data_service_t kind, const uint32_t uid, char *data)
+bool dsSend(ext_data_service_t kind, const uint32_t uid, char *data, bool free_data)
 {
+  if (data == nullptr) {
+    rlog_w(kind2tag(kind), "No data to send to channel %d", uid);
+    return false;
+  };
+
+  bool ret = false;
   if (_dataSendQueue != nullptr) {
     dataSendQueueItem_t* item = (dataSendQueueItem_t*)esp_calloc(1, sizeof(dataSendQueueItem_t));
     if (item != nullptr) {
       item->kind = kind;
       item->uid = uid;
-      item->data = data;
+      item->data = malloc_string(data);
       item->timestamp = time(nullptr);
       if (xQueueSend(_dataSendQueue, &item, pdMS_TO_TICKS(CONFIG_DATASEND_QUEUE_WAIT)) == pdPASS) {
+        ret = true;
         fixErrorQueue(kind, ESP_OK);
-        return true;
       } else {
-        rloga_e("Failed to append message to queue [ %s ]!", dataSendTaskName);
+        rlog_e(kind2tag(kind), "Failed to append message to queue [ %s ]!", dataSendTaskName);
         fixErrorQueue(kind, ESP_ERR_NOT_FINISHED);
       };
     } else {
-      rloga_e("Failed to create message to queue [ %s ]!", dataSendTaskName);
+      rlog_e(kind2tag(kind), "Failed to create message to queue [ %s ]!", dataSendTaskName);
       fixErrorQueue(kind, ESP_FAIL);
     };
   };
-  if (data != nullptr) free(data);
-  return false;
+  if (free_data) free(data);
+  return ret;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------
@@ -452,19 +460,19 @@ void dsTaskExec(void *pvParameters)
   while (true) {
     // Receiving new data
     while (xQueueReceive(_dataSendQueue, &item, wait_queue) == pdPASS) {
+      wait_queue = 1;
       channel = dsChannelFind(item->kind, item->uid);
       if (channel) {
         // Replacing channel data with new ones from the transporter
         channel->timestamp = item->timestamp;
-        if (channel->data) free(channel->data);
+        if (channel->data != nullptr) free(channel->data);
         channel->data = item->data;
       } else {
         rlog_e(logTAG, "Channel [%d] not found!", item->uid);
-        if (item->data) free(item->data);
+        if (item->data != nullptr) free(item->data);
       };
       item->data = nullptr;
       free(item);
-      wait_queue = 0;
     };
 
     // Check internet availability 
@@ -494,11 +502,11 @@ void dsTaskExec(void *pvParameters)
       };
 
       // Find the minimum delay before the next sending to the channel
-      wait_queue = portMAX_DELAY;
       channel = nullptr;
+      wait_queue = portMAX_DELAY;
       STAILQ_FOREACH(channel, _dataSendChannels, next) {
         if (channel->data != nullptr) {
-          TickType_t send_delay = 0;
+          TickType_t send_delay = 1;
           if (channel->send_next > xTaskGetTickCount()) {
             send_delay = channel->send_next - xTaskGetTickCount();
           };
