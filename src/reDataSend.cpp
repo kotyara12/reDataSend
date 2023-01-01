@@ -4,6 +4,7 @@
 #include "freertos/queue.h" 
 #include "freertos/semphr.h" 
 #include "esp_http_client.h"
+#include "mbedtls/ssl.h"
 #include "sys/queue.h"
 
 #if CONFIG_DATASEND_ENABLE
@@ -92,10 +93,6 @@ uint8_t _dataSendQueueStorage[CONFIG_DATASEND_QUEUE_SIZE * DATASEND_QUEUE_ITEM_S
 #if CONFIG_THINGSPEAK_ENABLE && (CONFIG_THINGSPEAK_TLS_PEM_STORAGE == TLS_CERT_BUFFER)
   extern const char api_thingspeak_pem_start[] asm(CONFIG_THINGSPEAK_TLS_PEM_START);
 #endif // CONFIG_THINGSPEAK_TLS_PEM_START
-
-#if (CONFIG_OPENMON_TLS_PEM_STORAGE == TLS_CERT_BUNDLE) || (CONFIG_NARODMON_TLS_PEM_STORAGE == TLS_CERT_BUNDLE) || (CONFIG_THINGSPEAK_TLS_PEM_STORAGE == TLS_CERT_BUNDLE)
-  #include "esp_crt_bundle.h"
-#endif // TLS_CERT_BUNDLE
 
 const char* kind2tag(ext_data_service_t kind)
 {
