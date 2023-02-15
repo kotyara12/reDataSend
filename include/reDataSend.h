@@ -2,7 +2,7 @@
    EN: Module for sending data to external services via HTTP protocol
    RU: Модуль для отправки данных на внешние сервисы через HTTP-протокол
    --------------------------
-   (с) 2020-2022 Разживин Александр | Razzhivin Alexander
+   (с) 2020-2023 Разживин Александр | Razzhivin Alexander
    kotyara12@yandex.ru | https://kotyara12.ru | tg: @kotyara1971
 */
 

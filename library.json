@@ -1,6 +1,6 @@
 {
   "name": "reDataSend",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "Publishing data to third-party services via an HTTP request",
   "keywords": "thingspeak, openmon, narodmon",
   "authors":

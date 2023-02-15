@@ -6,6 +6,7 @@
 #include "esp_http_client.h"
 #include "mbedtls/ssl.h"
 #include "sys/queue.h"
+#include <stdlib.h>
 
 #if CONFIG_DATASEND_ENABLE
 
@@ -17,7 +18,6 @@ typedef struct dataChannel_t {
   TickType_t interval_err;
   TickType_t send_next;
   char* data;
-  time_t timestamp;
   STAILQ_ENTRY(dataChannel_t) next;
 } dataChannel_t;
 typedef struct dataChannel_t *dataChannelHandle_t;
@@ -28,7 +28,6 @@ typedef struct {
   ext_data_service_t kind;
   uint32_t uid;
   char* data;
-  time_t timestamp;
 } dataSendQueueItem_t;  
 
 #define DATASEND_QUEUE_ITEM_SIZE sizeof(dataSendQueueItem_t)
@@ -264,7 +263,7 @@ void dsHttpConfig(ext_data_service_t kind, esp_http_client_config_t *config)
       #if CONFIG_NARODMON_ENABLE
         case EDS_NARODMON:   
           return format_string(_dsSendBuf, CONFIG_DATASEND_SEND_BUFFER_SIZE,
-            CONFIG_NARODMON_API_SEND_VALUES, channel->key, channel->timestamp, channel->data) > 0;
+            CONFIG_NARODMON_API_SEND_VALUES, channel->key, channel->data) > 0;
       #endif // CONFIG_NARODMON_ENABLE
       #if CONFIG_THINGSPEAK_ENABLE
         case EDS_THINGSPEAK: 
@@ -282,8 +281,8 @@ void dsHttpConfig(ext_data_service_t kind, esp_http_client_config_t *config)
           return malloc_stringf(CONFIG_OPENMON_API_SEND_VALUES, channel->uid, channel->key, channel->data);
       #endif // CONFIG_OPENMON_ENABLE
       #if CONFIG_NARODMON_ENABLE
-        case EDS_NARODMON:   
-          return malloc_stringf(CONFIG_NARODMON_API_SEND_VALUES, channel->key, channel->timestamp, channel->data);
+        case EDS_NARODMON:
+          return malloc_stringf(CONFIG_NARODMON_API_SEND_VALUES, channel->key, channel->data);
       #endif // CONFIG_NARODMON_ENABLE
       #if CONFIG_THINGSPEAK_ENABLE
         case EDS_THINGSPEAK: 
@@ -427,13 +426,14 @@ bool dsSend(ext_data_service_t kind, const uint32_t uid, char *data, bool free_d
       item->kind = kind;
       item->uid = uid;
       item->data = malloc_string(data);
-      item->timestamp = time(nullptr);
       if (xQueueSend(_dataSendQueue, &item, pdMS_TO_TICKS(CONFIG_DATASEND_QUEUE_WAIT)) == pdPASS) {
         ret = true;
         fixErrorQueue(kind, ESP_OK);
       } else {
         rlog_e(kind2tag(kind), "Failed to append message to queue [ %s ]!", dataSendTaskName);
         fixErrorQueue(kind, ESP_ERR_NOT_FINISHED);
+        if (item->data) free(item->data);
+        free(item);
       };
     } else {
       rlog_e(kind2tag(kind), "Failed to create message to queue [ %s ]!", dataSendTaskName);
@@ -461,7 +461,6 @@ void dsTaskExec(void *pvParameters)
       channel = dsChannelFind(item->kind, item->uid);
       if (channel) {
         // Replacing channel data with new ones from the transporter
-        channel->timestamp = item->timestamp;
         if (channel->data != nullptr) free(channel->data);
         channel->data = item->data;
       } else {
