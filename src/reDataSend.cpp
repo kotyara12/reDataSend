@@ -639,7 +639,7 @@ bool dsTaskDelete()
 
 static void dsWiFiEventHandler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-  if (event_id == RE_WIFI_STA_PING_OK) {
+  if (event_id == RE_INET_PING_OK) {
     dsTaskResume();
   };
 }
@@ -658,7 +658,7 @@ static void dsOtaEventHandler(void* arg, esp_event_base_t event_base, int32_t ev
 
 bool dsEventHandlerRegister()
 {
-  return eventHandlerRegister(RE_WIFI_EVENTS, RE_WIFI_STA_PING_OK, &dsWiFiEventHandler, nullptr)
+  return eventHandlerRegister(RE_WIFI_EVENTS, RE_INET_PING_OK, &dsWiFiEventHandler, nullptr)
       && eventHandlerRegister(RE_SYSTEM_EVENTS, RE_SYS_OTA, &dsOtaEventHandler, nullptr);
 };
 
